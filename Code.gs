@@ -75,14 +75,12 @@ function loadGInfo() {
   //Read and load student recommendation data from spreadsheet for use later (streamlining 14-Mar-2014)
   var recSheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
   var lastRow = recSheet.getLastRow();
-  var recSheetData = recSheet.getRange(1,1,lastRow,7).getValues();
+  var recSheetData = recSheet.getDataRange().getValues();
   //End Load Rec Data 14-Mar-2014
   
   //get courses that can be recommended in this department
   var recsListSheet = thisSheet.getSheetByName(myRecCourseListSheetName);
-  //var recsLastRow = recsListSheet.getLastRow();
   var departmentChoices = recsListSheet.getDataRange().getValues();
- // for(var n=0;n<departmentChoices[0].length;n++) {departmentChoices.push("");} // add a blank line at end of department choices
 
   //Change all date values into JSON for passing through HTMLservice (dates are causing errors)
   for (var n=1;n < recSheetData.length; n++) {
@@ -114,12 +112,17 @@ function include(filename) {
       .getContent();
 }
 
-
+//---------------
+//
+// postThisRec2 - called when a recommendation checkbox is clicked
+//
+//---------------
 function postThisRec2(action, recID, studentEmail, course, department){
   
   var thisUserStudID = studentEmail.substring(0,studentEmail.search('@'));
   var sheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
 
+  var actionAdd = (action == 1); //action Add should show true if recommendation is added, false if rec is being removed.
   
   //Read and load student recommendation data from spreadsheet for use later (streamlining 14-Mar-2014)
   var recSheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
@@ -127,40 +130,31 @@ function postThisRec2(action, recID, studentEmail, course, department){
   var recSheetData = recSheet.getRange(1,1,lastRow,7).getValues();
   //End Load Rec Data 14-Mar-2014
   
-  Logger.log([action, recID, studentEmail, course]);
+  Logger.log([action, recID, studentEmail, course, actionAdd]);
   var label2 = false;
   //If record doesn't exist then write it
   var recExists = alreadyRecommended(recSheetData, recID);
-      Logger.log([action,recExists]);
-  if( action == 1 && recExists == -1 ){
-    
-    var myTimeStamp = new Date();
-    // get the lock, because we're now modifying the shared resource
-    var lock = LockService.getPublicLock();
-    lock.waitLock(30000);
-    //Logger.log('in');
-    //Logger.log([recID, thisUserStudID, studentEmail, course, department, thisUser, new Date()]);
-    var targetRange = sheet.getRange(sheet.getLastRow()+1, 1, 1, 7).setValues([[recID, thisUserStudID, studentEmail, course, department, thisUser, myTimeStamp]] );    
+      Logger.log([action,recExists, actionAdd]);  
+  var myTimeStamp = new Date();
 
-   
-    SpreadsheetApp.flush();
-    // clean up and release the lock
-    lock.releaseLock();
-    
-    label2 = true;
-  }
-  else if (action == -1 && recExists >= 0){
-    var lock = LockService.getPublicLock();
-    lock.waitLock(30000);
-    
-    // Get the row to delete based off recID.
+  var lock = LockService.getPublicLock();
+  lock.waitLock(30000);
+  
+  //Get the right row number
+  if(recExists >= 0){
     var thisRow = ArrayLib.find(sheet.getRange(1,1,sheet.getLastRow(),7).getValues(), 0, recID) +1; 
-    //Delete the row.
-    var targetRange = sheet.deleteRow(thisRow);
-    //update the label
-    label2 = false;
-    lock.releaseLock();
+  } else {
+    var thisRow = sheet.getLastRow()+1;
   }
+  //Write the row
+  var targetRange = sheet.getRange(thisRow, 1, 1, 8).setValues([[recID, thisUserStudID, studentEmail, course, department, thisUser, myTimeStamp, actionAdd]] );    
+  
+  // clean up and release the lock
+  SpreadsheetApp.flush();
+  lock.releaseLock();
+    
+  //update the label
+  label2 = actionAdd;
   return [recID, label2];
 }
 

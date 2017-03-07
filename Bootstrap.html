@@ -73,7 +73,7 @@ function reloadChk(a){
     $('.'+a[0]).addClass('btn-success').removeClass('btn-warning');
   } else { 
     $('#'+a[0]).data('action', 1);
-    $('.'+a[0]).removeClass('btn-success').addClass('btn-warning');
+    $('.'+a[0]).removeClass('btn-success');
   }
 }
 
@@ -109,7 +109,7 @@ function loadInfo(a) {
   var CView = ""; //HTML for Student summary views
   var SHead = ""; //HTML for the student header
  //   console.log('level1Data');
- // console.log(level1Data);
+ console.log(recData);
   
   for (var i=0; i < level1Data.length; i++) {
     
@@ -177,18 +177,26 @@ function loadInfo(a) {
               courseChoices += '<div class="col-xs-6 col-md-4">';
   
               var myCurrentRecID = myStudents[y][0]+recChoices[r];
-              var found = findThisInArray(recData, myCurrentRecID, 0);
+              var found = getRowsMatching(recData, 0, myCurrentRecID);
               courseChoices += '<label><input type="checkbox" class="addRec '+ level1Data[i][2]+recChoices[r]+'" name="'+myCurrentRecID+
                                  '" data-recid="'+myCurrentRecID+'" id="'+myCurrentRecID+'" data-studentemail="'+myStudents[y][1]+
                                  '" data-course="'+recChoices[r]+'" data-department="'+level1Data[i][2]+'"';
-  
-              //console.log(myCurrentRecID);    
-              //console.log(found);
-              //recID, studentEmail, course, department
-              if(found){
-                courseChoices +=  'checked data-action="-1"><Span class="btn-success '+myCurrentRecID+'">'+recChoices[r] + '</span></label></div>';
+
+              //Create the reccomendation checkbox
+              var lblClass = "";
+              if (typeof found !== 'undefined' && found.length > 0){
+                var asterisk = "";
+                if(found[0][8]){//Student has requested this, add icon to indicate this
+                  asterisk = ' <span class="glyphicon glyphicon-hand-left"></span>';
+                  lblClass = "btn-warning"
+                 }
+                if(found[0][7]){//Rec exists
+                  courseChoices +=  'checked data-action="-1"><Span class="btn-success '+myCurrentRecID+'">'+recChoices[r] +asterisk+ '</span></label></div>';
+                }else{
+                  courseChoices += 'data-action="1"><Span class="'+myCurrentRecID+' '+lblClass+'">'+recChoices[r] + asterisk + '</span></label></div>';
+                }
               }else{
-                courseChoices += 'data-action="1"><Span class="btn-warning '+myCurrentRecID+'">'+recChoices[r] + '</span></label></div>';
+                courseChoices += 'data-action="1"><Span class="'+myCurrentRecID+'">'+recChoices[r] + '</span></label></div>';
               }
             }
           } else {
