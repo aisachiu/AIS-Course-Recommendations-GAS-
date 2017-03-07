@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+
+  </head>
+  <body>
+<div class="container">
+<div class="jumbotron"><h1><?= appTitle?></h1><small>Manage <?= entityTitle; ?></small></div>
+    <nav class="navbar navbar-default navbar-top">
+    <div class="container-fluid">
+
+      <div>
+        <ul class="nav navbar-nav">
+          <li class="active dropdown"><a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-expanded="false">My Courses<span class="caret"></span></a>
+        <div class="dropdown-menu list-group" id="SideMenu-List">
+          <p> loading... </p>
+        </div>
+          </li>
+        </ul>
+      </div>
+      <div class="navbar-header">
+        <div class="brand"><a class="navbar-brand" href="#">Courses</a></div>
+      </div>
+      </div>
+</nav>
+<div class="row">
+  <div id="SummaryViews" class="tab-content col-md-12 col-sm-12 ">
+        
+  </div>
+
+</div>
+
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+
+
+<script>
+// This runs when page is loaded
+$(function() {
+
+  google.script.run.withSuccessHandler(loadInfo).loadGInfo();
+  
+  $(document).on('click', '.btn-action1', function(e){
+    $(this).addClass('disabled');
+    google.script.run.withSuccessHandler(loadInfo).doThisFunction($(this).data('parameter'));
+  });
+  
+/* Mouse Over buttons examples */
+/*
+  $(document).on('mouseover', '.btn-exitClub', function(e) { $(this).text('Exit Club'); });
+  $(document).on('mouseout', '.btn-exitClub', function(e) { $(this).text($(this).data('deftext')); }); 
+  */
+    $(document).on('click', '.addRec', function(e){
+    $(this).attr('disabled',true);
+    google.script.run.withSuccessHandler(reloadChk).postThisRec2($(this).data('action'), $(this).data('recid'), $(this).data('studentemail'), $(this).data('course'), $(this).data('department'));
+    console.log([$(this).data('action'), $(this).data('recid'), $(this).data('studentemail'), $(this).data('course'), $(this).data('department')]);
+  });
+});
+
+
+
+
+function reloadChk(a){
+  $('#'+a[0]).addClass('active').attr('checked', a[1]).attr('disabled', false);
+  if(a[1] == true){
+     $('#'+a[0]).data('action', -1);
+    $('.'+a[0]).addClass('btn-success').removeClass('btn-warning');
+  } else { 
+    $('#'+a[0]).data('action', 1);
+    $('.'+a[0]).removeClass('btn-success').addClass('btn-warning');
+  }
+}
+
+function showThings(things){
+  var indlist = $('#stuff');
+  indlist.empty();
+  indlist.append(things[0]);
+}
+
+function showMembers(html){
+  $('#ActivityMembersSection').empty()
+                              .append(html);
+
+}
+
+
+
+
+
+/* function loadInfo
+ *
+ * Called to initiate all arrays that hold data after reading from Spreadsheet.
+ */
+function loadInfo(a) { 
+  var level1Data = a.courses;
+  var transcript = a.transcripts;
+  var departmentChoices = a.deptChoices;
+  var recData = a.recData;
+  var CList = '';//'<ul class="navList1">'; //HTML for Side list of students
+  var CView = ""; //HTML for Student summary views
+  var SHead = ""; //HTML for the student header
+  
+  console.log(departmentChoices);
+  
+  for (var i=0; i < level1Data.length; i++) {
+    CList += '<li><a class="list-group-item" href="#" data-toggle="tab" data-target="#Summary' + i+'">'+ level1Data[i][1]+ '</a></li>'; //add course to course list
+
+    //Make 1st class visibly loaded, load the others hidden
+    if(i == 0){ CView += '<div class="summaryCard tab-pane active" id="Summary' + i+'"><h2 class="media-heading ">'+ level1Data[i][1] + '</h2>';
+    } else { CView += '<div class="summaryCard tab-pane fade in" id="Summary' + i+'"><h2 class="media-heading ">'+ level1Data[i][1] + '</h2>';}
+    
+    //Get Current Students in this course
+    var currentStudents = $.grep(transcript, function (e) {
+      return e[7] === "Current";
+      });
+    var myStudents = $.grep(currentStudents, function (e) {
+      return e[9] === level1Data[i][1];
+      });
+    myStudents = sortByCol(myStudents, 2);
+
+
+      
+    //Get possible department choices in this course
+    var recChoices = [];
+    var col=level1Data[i][2]-1;
+    var row = 1;
+    while (departmentChoices[row][col] != ""){
+      recChoices.push(departmentChoices[row][col]);
+      row++;
+    }
+    
+    console.log(recChoices);
+    
+    //print a row for each student in the course
+    CView += '<table class="detailsTbl table">';
+    
+    CView += '<tr><td><span class="lead">Student</span><br /></td><td>'+/* topCourses+*/'</td></tr>'
+    //Get List of current students taking this course
+    
+    for (var y=0; y < myStudents.length; y++){    
+          var mytext = '<img src="http://www.theeaglepages.com/pvt/studentPhotos/'+myStudents[y][0]+'.jpg" class="img-rounded" alt="Cinque Terre" width="60px" /><br />' + myStudents[y][3] + " " + myStudents[y][2] + " ("+myStudents[y][0]+") G"+myStudents[y][4];
+          var courseChoices = '';
+          //If student is not in G12 
+          if(myStudents[y][4]!='12'){
+            //Cycle through and print out each recommendation
+            for (var r=0; r < recChoices.length; r++){
+              courseChoices += '<div class="col-xs-6 col-md-4">';
+  
+              var myCurrentRecID = myStudents[y][0]+recChoices[r];
+              var found = findThisInArray(recData, myCurrentRecID, 0);
+              courseChoices += '<input type="checkbox" class="addRec '+ level1Data[i][2]+recChoices[r]+'" name="'+myCurrentRecID+
+                                 '" data-recid="'+myCurrentRecID+'" id="'+myCurrentRecID+'" data-studentemail="'+myStudents[y][1]+
+                                 '" data-course="'+recChoices[r]+'" data-department="'+level1Data[i][2]+'"';
+  
+              console.log(myCurrentRecID);    
+              console.log(found);
+              //recID, studentEmail, course, department
+              if(found){
+                courseChoices +=  'checked data-action="-1"><Span class="btn-success '+myCurrentRecID+'">'+recChoices[r] + '</span></div>';
+              }else{
+                courseChoices += 'data-action="1"><Span class="btn-warning '+myCurrentRecID+'">'+recChoices[r] + '</span></div>';
+              }
+            }
+          }  
+          
+              //get credits of this student, in this department
+          var thisDeptCreds = getRowsMatching(getRowsMatching(transcript,1,myStudents[y][1]),6,myStudents[y][6]); 
+          var thisDeptTotal = 0; //Reset Credits counter (for summing credits in this department)
+          var myCourses = '';
+    
+          //If student has credits in this department, list them.
+          if (typeof thisDeptCreds[0] !== 'undefined') { 
+            //Sort the items by Year completed
+            thisDeptCreds.sort(function(a, b){ 
+              var x = a[7];
+              var y = b[7];
+              return (x < y ? -1 : (x > y ? 1 : 0));});      
+            //For each credit  
+            for (var myCreds = 0; myCreds <= thisDeptCreds.length - 1; myCreds++){
+              thisDeptTotal += thisDeptCreds[myCreds][8];
+              if (thisDeptCreds[myCreds][7] == 'Current') {//Make font red if it is "current"
+                myCourses += '<span class="bg-info">'+thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +');</span>'; 
+              }
+              else  myCourses += thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +');  '; 
+            }
+            
+            myCourses = '<b>Total: ' + thisDeptTotal +'credits: </b>' + myCourses;
+           }
+           CView += '<tr><td><span class="lead">'+mytext+'</span><br />'+ myCourses+'</td><td><div class="col-md-6 col-sm-12"><div class="row">'+courseChoices+'</div></div></td></tr>';          
+          }
+    CView +='</table></div>';
+  }
+  
+  var indlist = $('#SideMenu-List');
+  indlist.empty();
+  indlist.append(CList);
+  var SumV = $('#SummaryViews');
+  //SumV.empty();
+  SumV.append(CView);
+}
+
+
+//-------
+// Function usableColValues - returns the rows that are not blank within a column
+//-------
+function usableColValues(coldata) {
+  for( var i = coldata.length -1 ; i > 0; i--){
+
+    if(coldata[i] != "") {
+      return coldata.slice(0,i+1);
+      };
+  };
+  return coldata;
+}
+
+function sortByCol(myArray, index){
+  myArray = myArray.sort(function(a,b) {
+      if (a[index] > b[index]) return 1;
+      if (a[index] < b[index]) return -1;
+      return 0;});
+  return myArray;
+}
+
+//Returns True if Value is found in col column of myArray 2D array
+function findThisInArray(myArray, value, col){
+  for( var i = 0; i < myArray.length; i++ ) {
+      if(myArray[i][col] == value ) {
+          return true;
+          break;
+      }
+    
+  }
+  return false;
+}
+
+//-----
+//   getRowsMatching takes a data list and searches the sortIndex for all values that match valueToFind, returning the rows that match this value
+//-----
+
+function getRowsMatching(myDataList, sortIndex, valueToFind){
+  
+  var foundList = new Array();
+  
+  myDataList.sort(function(a, b){ //Sort the items by studentID
+    var x = a[sortIndex];
+    var y = b[sortIndex];
+    return (x < y ? -1 : (x > y ? 1 : 0));});
+  
+  var cdr = 0;
+  var found = false; 
+  
+  while ( cdr < myDataList.length){
+    if (myDataList[cdr][sortIndex] == valueToFind) {
+      found=true;
+      foundList.push(myDataList[cdr])
+    }
+    else if (found){
+      return foundList;
+    }
+    cdr++;
+  }
+
+  return foundList;
+  
+}
+/*
+      if (myClubs[i][1]==0){
+        outHTML+= '<td><button class="btn btn-warning btn-exitClub" data-deftext="requested" data-clubid="'+myClubs[i][clubMemberIDcol]+'">requested</span></td>';
+      } else if (myClubs[i][1] == 1){
+        outHTML+='<td><button class="btn btn-success btn-exitClub" data-deftext="Member" data-clubid="'+myClubs[i][clubMemberIDcol]+'">Member</button></td>';
+      }
+      
+      
+      
+  $(document).on('click', '.btn-join', function(e){
+    $(this).addClass('disabled');
+    google.script.run.withSuccessHandler(loadInfo).joinThisClub($(this).data('clubid'));
+  });
+  
+  $(document).on('click', '.btn-exitClub', function(e){
+    $(this).addClass('disabled');
+    google.script.run.withSuccessHandler(loadInfo).exitThisClub($(this).data('clubid'),0);
+  });
+      */
+
+</script>
+  </body>
+</html>
+
+
