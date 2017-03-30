@@ -1,0 +1,160 @@
+<html ng-app="myApp" ng-controller="myCtrl">
+  <head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+    <?!= include("AngularCss"); ?>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.2/angular.min.js"></script>
+  </head>
+  <body>
+  <div class="head-container"><div class="header" id="fixed-head"></div></div>
+<div class="container" >
+<div id="bannerArea" ng-show="dataFetching"><div class="alert alert-info" >Loading...</div></div>
+<div class="jumbotron"><h1><?= appTitle?></h1><small>Manage <?= entityTitle; ?></small></div>
+    <!-- <nav class="navbar navbar-default navbar-top">
+    <div class="container-fluid">
+
+      
+      <div class="navbar-header" id="navBar">
+        <ul class="nav navbar-nav" id="navUl">
+          <li class="active dropdown"><a class="dropdown-toggle" data-toggle="dropdown" href="#" aria-expanded="false">My Courses<span class="caret"></span></a>
+        <div class="dropdown-menu list-group" id="SideMenu-List">
+         
+            
+        </div>
+          </li>            
+        </ul>
+        <ul class="nav navbar-nav navbar-right push-right">
+          <li><a class="navbar-brand" href="https://docs.google.com/spreadsheets/d/1NLztRxdjOuBFlmXGSyUOws6BHnCUap9Wz09rTdckSgw/view#gid=6" target="_blank">Check recommendation counts</a></li>         
+        </ul>
+        
+      </div>
+      </div>
+  </nav> -->
+<div class="row">
+  <div id="SummaryViews" class="tab-content col-md-12 col-sm-12 ">
+  
+    <!--Sticky header Begin -->
+      <div id="sticky-anchor" class="row col-md-12 col-sm-12"></div>   
+      <div id="sticky" class="row col-md-12 col-sm-12">
+    <div class="row">
+      <div class="col-md-6 col-sm-12">Choose a current class, homeroom or next year's course:<select class="form-control" ng-model="courseFilter" ng-options="x for x in dropDown"></select><span ng-show="debugOn"> Current courseFilter: {{courseFilter}}</span></div>
+      <div class="col-md-6 col-sm-12">Choose a department:<select class="form-control" ng-model="deptFilter" ng-options="d[1] for d in deptDropDown"></select><span ng-show="debugOn"> Current deptFilter: {{deptFilter}}</span></div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 hidden-xs small well"><p> Legend:</p>
+                                      <ul>
+                                       <li><span class="glyphicon glyphicon-ok bg-success"></span> = Student Requested.</li>
+                                       <li><span class="bg-success">Requested and Approved</span></li>
+                                       <li><span class="bg-warning">Approved but not requested (wasted spot)</span></li>
+                                       <li><span class="bg-danger">Requested but not Approved (needs approval?)</span></li>
+                                      </ul> 
+                                      
+                               
+                             
+        </div>
+      <div class="col-md-6 hidden-sm hidden-xs">    
+           <div class="row">
+                 <div class="col-md-12">
+                   <span ng-show="debugOn">{{filterTotals}}</span>
+                     Response breakdown for {{courseFilter}}
+                     <div class="progress">
+                         <div class="progress-bar progress-bar-success" role="progressbar" style="width:{{(filterTotals.green / filteredStudentList.length)*100}}%">
+                           {{filterTotals.green}}
+                         </div>
+                         <div class="progress-bar progress-bar-warning" role="progressbar" style="width:{{(filterTotals.yellow / filteredStudentList.length)*100}}%">
+                           {{filterTotals.yellow}}
+                         </div>
+                         <div class="progress-bar progress-bar-danger" role="progressbar" style="width:{{(filterTotals.red / filteredStudentList.length)*100}}%">
+                           {{filterTotals.red}}
+                         </div>
+                     </div>
+                  </div>
+            </div>
+            <div class="row">
+                  <span ng-show="debugOn">{{choicesProgressBar}}</span>
+                  <div class="col-md-12 hidden-xs">
+                    <label><span class="label label-info">Summary A:Approved, R:Requested</span></label>
+                  </div>
+                  <div class="col-md-4 hidden-xs" ng-repeat="(key, val) in choicesProgressBar" ng-show="((val.appTotal > 0)||(val.reqTotal > 0)) && (val.dept == deptFilter[0])">
+                    <label><span class="label label-info">{{key}} A:{{val.appTotal}}, R:{{val.reqTotal}}</span></label>
+                  </div>
+           </div>
+           <div class="row">
+                <div class="col-md-6 pull-right">
+                  <p> <span class="hidden-xs">Total: </span>{{filteredStudentList.length}}</p>
+                </div>
+           </div>
+     </div>
+    </div>
+
+    <hr>  
+    <div class="row">
+      <div class="col-md-3 col-sm-4 col-xs-12">Student</div>
+      <div class="col-md-6 col-sm-6 col-xs-12">Approvals and Requests<label class="pull-right"><input type="checkbox" ng-model="showAllChoices" /> Show all choices </label></div>
+      <div class="col-md-3 col-sm-2 hidden-xs">Credits Earned</div>
+    </div>
+    <hr>
+    </div>
+    <!--Sticky header End -->
+ 
+<!-- Repeating rows -->
+    <div class="row bordered" ng-repeat="student in filteredStudentList | orderBy:'lastName'">
+      <div class="col-md-3 col-sm-4 col-xs-12">
+        <div class="row">
+          <div class="col-md-4 col-sm-3 hidden-xs">
+            <img src="{{'http://www.theeaglepages.com/pvt/studentPhotos/'+student.studentID+'.jpg'}}" class="img-rounded" alt="Cinque Terre" width="60px" />
+          </div>
+          <div class="col-md-8 col-sm-9 hidden-xs">
+            <label class="label label-default small col-md-4 col-sm-12" ng-repeat="choice in student.requests | orderBy:'this[4]'" ng-show="choice[8]" ng-class="{'label-danger':(choice[8] && (!choice[7])), 'label-success': (choice[8] && choice[7])}">{{choice[3]}}</label>
+          </div>
+          <div class="col-md-12 col-xs-12">
+            <span class="lead">{{student.givenName + " " + student.lastName + " ("+student.studentID+") "+student.homeroom}}</span>
+          </div>
+        </div>
+       </div>
+       <div class="col-md-6 col-sm-6 col-xs-12">
+         <div class="row">
+           <div class="col-md-4 col-sm-6 col-xs-6" ng-repeat="(key, value) in student.approvalChoice | selectedDept:deptFilter[0]" ng-if="showAllChoices || (key == courseFilter)">
+              <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate" ng-show="(value.clientAppVal != value.serverAppVal)"></span>
+              <label ng-class="{'bg-danger': (!value.clientAppVal)&&(value.requestVal), 'bg-success':(value.serverAppVal) && (value.requestVal), 'bg-warning': (value.serverAppVal) && (!value.requestVal)}" ng-mouseover="value.showTip = true;" ng-mouseleave="value.showTip = false;">
+                <input type="checkbox" ng-model="value.clientAppVal" ng-click="postThis(value, key, value.clientAppVal);" id="{{value.uniqueAppID}}" ng-disabled="(value.clientAppVal != value.serverAppVal) || value.serverLocked" />{{key}}              
+              </label>
+              <!-- Show student request checkbox - active if user is an approver -->
+              <label ng-show="data.approver" class="label label-default" ng-class="{ 'label-danger': (value.serverRequestVal && (!value.serverAppVal)), 'label-success': (value.serverRequestVal && value.serverAppVal), 'label-warning': ((!value.serverRequestVal) && value.serverAppVal)}">
+                  <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate" ng-show="(value.requestVal != value.serverRequestVal)"></span>
+                  R:<input type="checkbox" ng-model="value.requestVal" ng-click="postRequest(value, key, value.requestVal);" ng-disabled="(value.requestVal != value.serverRequestVal) || value.serverLocked">
+              </label> 
+              <!-- Show student request status if not approver -->
+               <span class="glyphicon glyphicon-ok bg-success" ng-show="value.requestVal && !data.approver"></span> 
+               <!--show locked status for non-approver-->
+                <span ng-show="(!data.approver) && value.serverLocked" class="glyphicon glyphicon-lock"></span>
+               <!-- show lock controls for approver -->
+                <span ng-show="data.approver">
+                  <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate" ng-show="(value.clientLocked != value.serverLocked)"></span>
+                  <span class="glyphicon glyphicon-lock"></span>
+                  <input type="checkbox" ng-model="value.clientLocked" ng-click="postLock(value, key, value.clientLocked)" ng-disabled="value.clientLocked != value.serverLocked" ng-show="data.approver" />
+                </span>
+               <!-- on hover last editor -->
+               <span class="small hidden-xs tooltiptext" ng-show="(value.showTip && (value.editor != ''))">Last edit: {{value.editor}} {{value.editTime}}</span>
+           </div>
+         </div>
+       </div>
+       <div class="col-md-3 col-sm-2 hidden-xs">
+         <div class="row">
+           <div class="col-md-12 hidden-xs" ng-repeat="transcript in student.transcript | orderBy:'[7]'" ng-show="transcript[5]==deptFilter[0]">
+             <span ng-class="{'bg-warning': transcript[7]=='Current'}">{{transcript[9]}} ({{transcript[7]}}): {{transcript[11]}}</span>
+           </div>
+         </div>
+       </div>        
+    </div>
+    <!-- End Repeating Rows -->
+    <div id="sticky-anchor-end"></div>
+  </div>
+   
+</div>
+
+</div>
+
+<?!= include("AngularScript"); ?>
+

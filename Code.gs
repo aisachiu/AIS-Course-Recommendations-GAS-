@@ -13,15 +13,23 @@ var myGradReqsSheetName = 'GradReqs';
 var myStudentDataSheetName = 'StudentList';
 var myTeacherCoursesSheetName = 'TeacherCourses';
 var myRecCourseListSheetName = 'RecCourseList';
+var myApproversList = 'PrincipalApprover';
 
 
 //Spreadsheet for saving student choices. 
 //var mySurveyCollector = '0AkB30i6AUCFldC1hd2d6QW4tanY3Zk9CZm9YMGNWaGc'; //Trial Spreadsheet
-var mySurveyCollector = '0AkB30i6AUCFldFVyTzY1U012cGlBT29aQTFfMHIwMmc'; //Live collector in 2012-13 for 2013-14 choices
+var mySurveyCollector = '0AkB30i6AUCFldFVyTzY1U012cGlBT29aQTFfMHIwMmc'; //Live collector 
+//var mySurveyCollector = '1waDJYP2dznf_EaY_UT_jSvlLPDYaAaoy413IknKMytQ'; //Testing collector 2017
 var mySurveySheetName = 'Results';
 var mySurveyCourseCounts = 'CourseCounts';
 //var myRecommendationSheetName = 'Recommendation';
 var myRecommendationSheetName = 'Request';
+
+//Spreadsheet with course planning info
+var myCoursePlannerDocId = '1S6UK3WKSo_y703TLL2Rt91Ia_che6mnOBM2o1LIxXb0'; //document with data on courses for upcoming year.
+var deptDefnSheet = 'Department Definition';
+var courseDefnSheet = 'Course Definition 2017-18';
+
 
 //Get User
 var thisUser = Session.getActiveUser().getEmail(); //Logged-in User
@@ -30,15 +38,16 @@ var thisUser = Session.getActiveUser().getEmail(); //Logged-in User
 //var thisUser = 'kerickson@ais.edu.hk';
 //var thisUser = 'aczarnobaj@ais.edu.hk';
 //var thisUser = 'mwing@ais.edu.hk';
-
+//var thisUser = 'mrobertson@ais.edu.hk';
+//var thisUser = 'kbumpus@ais.edu.hk';
 
 var tHeadingMap = [ 10, 9, 6]; //Maps the cols in TeacherCourses sheet to Transcript sheet for filtering students.
 
 //For HTMLService app (from template)
 //var userSheetName = 'Members';
 var challengeSheetName = 'Recommendations';
-var appTitle = 'Recommendations';
-var entityTitle = 'Recommendations'; // used in titles throughout app
+var appTitle = 'Course Approvals';
+var entityTitle = 'Approvals'; // used in titles throughout app
 
 
 /* 
@@ -49,8 +58,9 @@ function doGet() {
 // Check Permissions here if you wish to check user permissions
 
 // Load index.html
-  var myDoc = 'Bootstrap';  
+//  var myDoc = 'Bootstrap';  
 //  var myDoc = 'index'; 
+  var myDoc = 'Angular'
   return HtmlService.createTemplateFromFile(myDoc).evaluate().setSandboxMode(HtmlService.SandboxMode.IFRAME);
 }
 
@@ -65,7 +75,6 @@ function loadGInfo() {
   var lvl1Col = 1; //set column in TecherCourses to look up for Course Codes.  
   
   var myData = getRowsMatching(teacherListSheet.getRange(2, 1, teacherListSheet.getLastRow(), teacherListSheet.getLastColumn()).getValues(),0,thisUser);
-
   Logger.log(myData);
   //GRAB DATA FROM SPREADSHEET (transcripts and list of rec options)
   //get list of teacher's current students from transcript
@@ -77,27 +86,56 @@ function loadGInfo() {
   var lastRow = recSheet.getLastRow();
   var recSheetData = recSheet.getDataRange().getValues();
   //End Load Rec Data 14-Mar-2014
-  
+
+  //Check Approver - check if this user has approver rights (principal and counsellors)
+  var approver = canApprove(thisUser);
+
   //get courses that can be recommended in this department
   var recsListSheet = thisSheet.getSheetByName(myRecCourseListSheetName);
   var departmentChoices = recsListSheet.getDataRange().getValues();
+  
+  //get new department choices based on next year's courses
+  var coursePlannerDoc = SpreadsheetApp.openById(myCoursePlannerDocId);
+  var courseDefn = coursePlannerDoc.getSheetByName(courseDefnSheet).getDataRange().getValues();
+  var deptDefn = coursePlannerDoc.getSheetByName(deptDefnSheet).getDataRange().getValues();
 
   //Change all date values into JSON for passing through HTMLservice (dates are causing errors)
   for (var n=1;n < recSheetData.length; n++) {
-    if (recSheetData[n][6] instanceof Date) recSheetData[n][6] = recSheetData[n][6].toJSON();
+    for (var m=0; m < recSheetData[0].length; m++) {
+      if (recSheetData[n][m] instanceof Date) recSheetData[n][m] = recSheetData[n][m].toJSON();
     }
+  }
   
   //Get StudentList
   var studentInfo = textifyDates(thisSheet.getSheetByName(myStudentDataSheetName).getDataRange().getValues());
   
-  var myDepts = ArrayLib.unique(myData, 2);
+  //get list of this user's departments. If an apporver they should have access to all departments.
+  var myDepts = [];
+  if(approver) { 
+    myDepts = ArrayLib.unique(deptDefn.slice(1), 0);
+    } else{
+    myDepts = ArrayLib.unique(myData, 2);
+  }
   
-  var HRMList = ArrayLib.unique(studentInfo,2);
+  
+  var HRMList = ArrayLib.unique(studentInfo,2).slice(1).sort();
+  
+
   
   Logger.log({courses: myData, transcripts: getAllTranscripts, recData: recSheetData, deptChoices: departmentChoices})
   //RETURN DATA (course list, full transcripts, completed recs) TO HTML
-  return {courses: myData, transcripts: getAllTranscripts, recData: recSheetData, deptChoices: departmentChoices, studentInfo: studentInfo, myDepts: myDepts, HRMList: HRMList};
+  return {courses: myData, transcripts: getAllTranscripts, recData: recSheetData, deptChoices: departmentChoices, studentInfo: studentInfo, myDepts: myDepts, HRMList: HRMList, courseDefn: courseDefn, deptDefn: deptDefn, approver: approver};
 
+}
+
+function canApprove(user){
+
+  var approvers=SpreadsheetApp.openById(myListDocID).getSheetByName(myApproversList).getDataRange().getValues();
+  var approver = false;
+  for (var ap = 0; ap < approvers.length; ap++){
+    if(approvers[ap][0] == user) approver = true;
+  }
+  return approver;
 }
 
 function getRecCounts(){
@@ -123,7 +161,7 @@ function postThisRec2(action, recID, studentEmail, course, department){
   var sheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
 
   var actionAdd = (action == 1); //action Add should show true if recommendation is added, false if rec is being removed.
-  
+  var error = {status: false, msg: ""};
   //Read and load student recommendation data from spreadsheet for use later (streamlining 14-Mar-2014)
   var recSheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
   var lastRow = recSheet.getLastRow();
@@ -152,13 +190,132 @@ function postThisRec2(action, recID, studentEmail, course, department){
   // clean up and release the lock
   SpreadsheetApp.flush();
   lock.releaseLock();
-    
+  
+  var readUpdate = textifyDates(sheet.getDataRange().getValues());
   //update the label
   label2 = actionAdd;
-  return [recID, label2];
+  return {readUpdate: readUpdate, error:error};
 }
 
 
+//---------------
+//
+// postThisRequest - called when a request checkbox is clicked
+//
+//---------------
+function postThisRequest(action, recID, studentEmail, course, department){
+  
+
+  var thisUserStudID = studentEmail.substring(0,studentEmail.search('@'));
+  var sheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
+
+  var actionAdd = (action == 1); //action Add should show true if recommendation is added, false if rec is being removed.
+  var error = {status: false, msg: ""};
+  
+    var approver = canApprove(thisUser);
+  
+  if(canApprove){
+
+    //Read and load student recommendation data from spreadsheet for use later (streamlining 14-Mar-2014)
+    var recSheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
+    var lastRow = recSheet.getLastRow();
+    var recSheetData = recSheet.getRange(1,1,lastRow,7).getValues();
+    //End Load Rec Data 14-Mar-2014
+    
+    Logger.log([action, recID, studentEmail, course, actionAdd]);
+    var label2 = false;
+    //If record doesn't exist then write it
+    var recExists = alreadyRecommended(recSheetData, recID);
+        Logger.log([action,recExists, actionAdd]);  
+    var myTimeStamp = new Date();
+  
+    var lock = LockService.getPublicLock();
+    lock.waitLock(30000);
+    
+    //Get the right row number
+    if(recExists >= 0){ //Write if already exists
+      var thisRow = ArrayLib.find(sheet.getRange(1,1,sheet.getLastRow(),7).getValues(), 0, recID) +1; 
+      var targetRange = sheet.getRange(thisRow, 9, 1, 3).setValues([[actionAdd, myTimeStamp, thisUser]] );
+    } else {
+      //Write the new row
+      var thisRow = sheet.getLastRow()+1;
+      var targetRange = sheet.getRange(thisRow, 1, 1, 11).setValues([[recID, thisUserStudID, studentEmail, course, department, "", "", "", actionAdd, myTimeStamp, thisUser]] );
+    } 
+    
+    // clean up and release the lock
+    SpreadsheetApp.flush();
+    lock.releaseLock();
+    
+    var readUpdate = textifyDates(sheet.getDataRange().getValues());
+    //update the label
+    label2 = actionAdd;
+    return {readUpdate: readUpdate, error:error};
+  } else {
+    error.status = true;
+    error.msg = "You don't have permission to change a student request";
+    return {readUpdate: [], error:error};
+  }
+}
+
+
+//---------------
+//
+// postThisLock - called when a lock checkbox is clicked
+//
+//---------------
+function postThisLock(action, recID, studentEmail, course, department){
+  
+
+  var thisUserStudID = studentEmail.substring(0,studentEmail.search('@'));
+  var sheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
+
+  var actionAdd = (action == 1); //action Add should show true if lock is added, false if lock is being removed.
+  var error = {status: false, msg: ""};
+  
+  var approver = canApprove(thisUser);
+  
+  if(canApprove){
+
+    //Read and load student recommendation data from spreadsheet for use later (streamlining 14-Mar-2014)
+    var recSheet = SpreadsheetApp.openById(mySurveyCollector).getSheetByName(myRecommendationSheetName);
+    var lastRow = recSheet.getLastRow();
+    var recSheetData = recSheet.getRange(1,1,lastRow,7).getValues();
+    //End Load Rec Data 14-Mar-2014
+    
+    Logger.log([action, recID, studentEmail, course, actionAdd]);
+    var label2 = false;
+    //If record doesn't exist then write it
+    var recExists = alreadyRecommended(recSheetData, recID);
+        Logger.log([action,recExists, actionAdd]);  
+    var myTimeStamp = new Date();
+  
+    var lock = LockService.getPublicLock();
+    lock.waitLock(30000);
+    
+    //Get the right row number
+    if(recExists >= 0){ //Write if already exists
+      var thisRow = ArrayLib.find(sheet.getRange(1,1,sheet.getLastRow(),7).getValues(), 0, recID) +1; 
+      var targetRange = sheet.getRange(thisRow, 12, 1, 3).setValues([[actionAdd, myTimeStamp, thisUser]] );
+    } else {
+      //Write the new row
+      var thisRow = sheet.getLastRow()+1;
+      var targetRange = sheet.getRange(thisRow, 1, 1, 14).setValues([[recID, thisUserStudID, studentEmail, course, department, thisUser,myTimeStamp,false,false, myTimeStamp, thisUser, actionAdd, myTimeStamp, thisUser]] );
+    } 
+    
+    // clean up and release the lock
+    SpreadsheetApp.flush();
+    lock.releaseLock();
+    
+    var readUpdate = textifyDates(sheet.getDataRange().getValues());
+    //update the label
+    label2 = actionAdd;
+    return {readUpdate: readUpdate, error:error};
+  } else {
+    error.status = true;
+    error.msg = "You don't have permission to change a student request";
+    return {readUpdate: [], error:error};
+  }
+}
 
 // ----------------------------------------------------------------------------------
 // ----------------------------------------------------------------------------------

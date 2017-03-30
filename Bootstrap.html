@@ -105,6 +105,7 @@ function loadInfo(a) {
   var transcript = a.transcripts;
   var departmentChoices = a.deptChoices;
   var recData = a.recData;
+  var courseDefn = a.courseDefn;
   var CList = '';//'<ul class="navList1">'; //HTML for Side list of students
   var CView = ""; //HTML for Student summary views
   var SHead = ""; //HTML for the student header
@@ -132,7 +133,13 @@ function loadInfo(a) {
     myStudents = sortByCol(myStudents, 2);
      //console.log('myStudents');
      //console.log(myStudents);
-      
+     
+    //Get possible department choices in this course 
+    var recChoices = [];
+    var myDeptChoices = getRowsMatching2(courseDefn, 4, level1Data[i][2]);
+    console.log([level1Data[i][2], myDeptChoices]);
+    for (var dc=0; dc < myDeptChoices.length; dc++){ recChoices.push(myDeptChoices[dc][1])};
+/*    //----
     //Get possible department choices in this course
     var recChoices = [];
     if ((level1Data[i][2] > 0) && (level1Data[i][2] < 9)){ //If this department exists (not homeroom, ie dept is betwee 1 and 8)
@@ -141,8 +148,6 @@ function loadInfo(a) {
       
       try {
       while (((departmentChoices[row][col] != "") && (departmentChoices[row][col] !="lastRow")) && (typeof departmentChoices[row][col] !== 'undefined')) { //((gData.deptChoices[row][col] != "") && (gData.deptChoices[row][col] !="lastRow")) && (typeof gData.deptChoices[row][col] !== 'undefined')
-      
-          console.log([row, col]);
           recChoices.push(departmentChoices[row][col]);
           row++;
       }
@@ -150,8 +155,10 @@ function loadInfo(a) {
           console.log(e);
           break;
         }
-    }
-    
+    }*/
+    console.log(["RECCHOICES",recChoices]);
+    //----
+  
     //Create Master rec buttons at top
     var topChoices = "<dt>Recommendations</dt><dd>Make your recommendations here</dd>";
     //console.log(recChoices);
@@ -218,9 +225,9 @@ function loadInfo(a) {
             for (var myCreds = 0; myCreds <= thisDeptCreds.length - 1; myCreds++){
               thisDeptTotal += thisDeptCreds[myCreds][8];
               if (thisDeptCreds[myCreds][7] == 'Current') {//Make font red if it is "current"
-                myCourses += '<li class="list-unstyled"><span class="bg-info">'+thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +');</span></li>'; 
+                myCourses += '<li class="list-unstyled"><span class="bg-info">'+thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +'): '+thisDeptCreds[myCreds][11]+';</span></li>'; 
               }
-              else  myCourses += '<li class="list-unstyled">' +thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +');</li>  '; 
+              else  myCourses += '<li class="list-unstyled">' +thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +'): '+thisDeptCreds[myCreds][11]+';</li>  '; 
             }
             
             myCourses = '<b>Total: ' + thisDeptTotal +'credits: </b><ul>' + myCourses+'</ul>';
@@ -264,25 +271,11 @@ for (var d=0; d < gData.myDepts.length; d++){
     
     //Get possible department choices 
     var recChoices = [];
-    var col=gData.myDepts[d]-1;
-    var row = 1; 
-    console.log([row, col, gData.deptChoices[row][col]]);
-    while (((gData.deptChoices[row][col] != "") && (gData.deptChoices[row][col] !="lastRow")) && (typeof gData.deptChoices[row][col] !== 'undefined')){      
-    try {
-      recChoices.push(gData.deptChoices[row][col]);
-      row++;
-      console.log([row,col,recChoices,gData.deptChoices[row][col], (gData.deptChoices[row][col] != "") && (typeof gData.deptChoices[row][col] !== 'undefined'), (gData.deptChoices[row][col] != ""), (typeof gData.deptChoices[row][col] !== 'undefined')]);
-     } catch(e){ 
-      console.log(e); 
-      break;
-     }
-
-    
-    }
-    console.log('out');
+    var myDeptChoices = getRowsMatching2(gData.courseDefn, 4, gData.myDepts[d]);
+    for (var dc=0; dc < myDeptChoices.length; dc++){ recChoices.push(myDeptChoices[dc][1])};
    
     //For each Homeroom
-    for(var hrmi=gData.HRMList.length-1; hrmi > 1 ; hrmi--){
+    for(var hrmi=0; hrmi < gData.HRMList.length; hrmi++){
        MenuList += '<li><a class="list-group-item" href="#" data-toggle="tab" data-target="#'+gData.myDepts[d]+'HRM' + hrmi+'">'+ gData.HRMList[hrmi]+ '</a></li>'; //add HRM to dropdown list
       //console.log([gData.myDepts[d],hrmi,MenuList]);
        CView += '<div class="summaryCard tab-pane fade in" id="'+gData.myDepts[d]+'HRM' + hrmi+'"><h2 class="media-heading ">'+gData.deptChoices[0][gData.myDepts[d]-1]+' for '+ gData.HRMList[hrmi] +'</h2>';
@@ -316,18 +309,25 @@ for (var d=0; d < gData.myDepts.length; d++){
               courseChoices += '<div class="col-xs-6 col-md-4">';
   
               var myCurrentRecID = myStudents[y][0]+recChoices[r];
-              var found = findThisInArray(gData.recData, myCurrentRecID, 0);
+              var found = getRowsMatching(gData.recData, 0, myCurrentRecID);
               courseChoices += '<label><input type="checkbox" class="addRec '+ gData.HRMList[hrmi]+recChoices[r]+'" name="'+myCurrentRecID+
                                  '" data-recid="'+myCurrentRecID+'" id="'+myCurrentRecID+'" data-studentemail="'+myStudents[y][0]+
                                  '@ais.edu.hk" data-course="'+recChoices[r]+'" data-department="'+gData.myDepts[d]+'"';
-  
-              //console.log(myCurrentRecID);    
-              //console.log(found);
-              //recID, studentEmail, course, department
-              if(found){
-                courseChoices +=  'checked data-action="-1"><Span class="btn-success '+myCurrentRecID+'">'+recChoices[r] + '</span></label></div>';
+              //Create the reccomendation checkbox
+              var lblClass = "";
+              if (typeof found !== 'undefined' && found.length > 0){
+                var asterisk = "";
+                if(found[0][8]){//Student has requested this, add icon to indicate this
+                  asterisk = ' <span class="glyphicon glyphicon-hand-left"></span>';
+                  lblClass = "btn-warning"
+                 }
+                if(found[0][7]){//Rec exists
+                  courseChoices +=  'checked data-action="-1"><Span class="btn-success '+myCurrentRecID+'">'+recChoices[r] +asterisk+ '</span></label></div>';
+                }else{
+                  courseChoices += 'data-action="1"><Span class="'+myCurrentRecID+' '+lblClass+'">'+recChoices[r] + asterisk + '</span></label></div>';
+                }
               }else{
-                courseChoices += 'data-action="1"><Span class="btn-warning '+myCurrentRecID+'">'+recChoices[r] + '</span></label></div>';
+                courseChoices += 'data-action="1"><Span class="'+myCurrentRecID+'">'+recChoices[r] + '</span></label></div>';
               }
             }
           } else {
@@ -351,9 +351,9 @@ for (var d=0; d < gData.myDepts.length; d++){
               if (typeof thisDeptCreds[myCreds][8] !== 'undefined') {
                 thisDeptTotal += thisDeptCreds[myCreds][8];
                 if (thisDeptCreds[myCreds][7] == 'Current') {//Make font red if it is "current"
-                  myCourses += '<li class="list-unstyled"><span class="bg-info">'+thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +');</span></li>'; 
+                  myCourses += '<li class="list-unstyled"><span class="bg-info">'+thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +'): '+thisDeptCreds[myCreds][11]+';</span></li>'; 
                 }
-                else  myCourses += '<li class="list-unstyled">' +thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +');</li>  '; 
+                else  myCourses += '<li class="list-unstyled">' +thisDeptCreds[myCreds][9] + ' (' + thisDeptCreds[myCreds][7] +'): '+thisDeptCreds[myCreds][11]+';</li>  '; 
               }
             }
             
@@ -435,6 +435,33 @@ function getRowsMatching(myDataList, sortIndex, valueToFind){
     else if (found){
       return foundList;
     }
+    cdr++;
+  }
+
+  return foundList;
+  
+}
+function getRowsMatching2(myDataList, sortIndex, valueToFind){
+  
+  var foundList = new Array();
+  
+/*  myDataList.sort(function(a, b){ //Sort the items by studentID
+    var x = a[sortIndex];
+    var y = b[sortIndex];
+    return (x < y ? -1 : (x > y ? 1 : 0));});
+  */
+  var cdr = 0;
+  var found = false; 
+  console.log(myDataList);
+  while ( cdr < myDataList.length){
+    console.log([cdr, myDataList[cdr][sortIndex] == valueToFind,myDataList[cdr][sortIndex],valueToFind]);
+    if (myDataList[cdr][sortIndex] == valueToFind) {
+      found=true;
+      foundList.push(myDataList[cdr])
+    }
+    /*else if (found){
+      return foundList;
+    }*/
     cdr++;
   }
 

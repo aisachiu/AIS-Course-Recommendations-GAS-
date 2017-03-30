@@ -1,0 +1,350 @@
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+  <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+<script>
+
+  $(function() {
+    $( ".draggable" ).draggable();
+  });
+
+
+function sticky_relocate() {
+    var window_top = $(window).scrollTop();
+    var div_top = $('#sticky-anchor').offset().top - 10; //- ($('#sticky').outerHeight()/2) 
+    if (window_top > div_top) {
+        $('#sticky').addClass('stick');
+        $('#sticky-anchor').height($('#sticky').outerHeight());
+        $('#sticky-anchor-end').height($('#sticky').outerHeight());
+        $('#sticky').width($('.container').innerWidth());
+    } else {
+        $('#sticky').removeClass('stick');
+        $('#sticky-anchor').height(0);
+        $('#sticky-anchor').height(0);
+    }
+}
+
+$(function() {
+    $(window).scroll(sticky_relocate);
+    sticky_relocate();
+});
+
+
+
+
+
+//Angular
+var app = angular.module('myApp', []);
+
+
+app.service("myService", ['$rootScope', function($rootScope){
+  var g = {data: 'gold', showdata: true};
+  function showD(data){  
+    g.data = data;
+    $rootScope.$broadcast('hereNow', g);
+  }
+  
+  //google.script.run.withSuccessHandler(showData).loadGInfo();
+  return g;
+}]);
+
+
+app.controller('myCtrl', function($scope, $filter, myService, $timeout, $q){
+    $scope.data = {} ;
+    $scope.debugOn = false;
+    $scope.dataFetching = true; // use this to be true while fetching data (disable inputs, etc)
+    $scope.showAllChoices = true;
+    $scope.courseFilter = "";
+    $scope.deptFilter = "";
+    $scope.filterTotals = {green: 0, yellow: 0, red: 0};
+    $scope.dropDown = [["Course", 0]];
+    $scope.deptDropdown = [["Department", 0]];
+    $scope.deptFilterObj = {choiceData: { dept: 8}};
+    $scope.filteredStudentList = "";
+    $scope.choicesProgressBar = {};
+    
+    $scope.$watch("courseFilter", function (newValue) {
+      $scope.filteredStudentList = $filter('selectedCourse')($scope.data.sData, newValue);
+      updateStats();   
+		});
+    
+    function updateStats(){
+      var filteredStudentList = $scope.filteredStudentList;
+      //Create the progress bars showing breakdowns 
+      $scope.choicesProgressBar = {};
+      $scope.filterTotals = {green: 0, yellow: 0, red: 0};
+      for(var s in filteredStudentList){
+        for (var c in filteredStudentList[s].approvalChoice){
+         //Create the progress bar showing breakdown of approval & requests status for this course
+          if(c == $scope.courseFilter){
+            if(filteredStudentList[s].approvalChoice[c].requestVal) {
+              if (filteredStudentList[s].approvalChoice[c].serverAppVal){
+                $scope.filterTotals.green++;
+              } else {
+                $scope.filterTotals.red++;
+              }
+            } else if (filteredStudentList[s].approvalChoice[c].serverAppVal) {
+              $scope.filterTotals.yellow++
+            }
+          }         
+          //Create the progress bar showing breakdown of all subject choices
+          if(!(c in $scope.choicesProgressBar)) {
+            $scope.choicesProgressBar[c] = {appTotal: 0, reqTotal: 0, dept:filteredStudentList[s].approvalChoice[c].choiceData.dept };
+          }
+          if(filteredStudentList[s].approvalChoice[c].requestVal) $scope.choicesProgressBar[c].reqTotal++;
+          if(filteredStudentList[s].approvalChoice[c].serverAppVal) $scope.choicesProgressBar[c].appTotal++;
+        }
+      }
+    }
+    
+    $scope.$on('hereNow', function(event, data){
+      $scope.data = data.data;
+    });
+    
+    $scope.postThis = function(choice, key, cValue){
+      var action = 0;
+      if(cValue) action = 1; //action is one if adding the recommendation
+      var recID = choice.uniqueAppID;
+      var studentEmail = choice.studentEmail;
+      var course = key;
+      var department = choice.choiceData.dept;
+      console.log([action, recID, studentEmail, course, department]);
+      google.script.run.withSuccessHandler(reloadChk).postThisRec2(action, recID, studentEmail, course, department);
+    }
+    
+    $scope.postRequest = function(choice, key, cValue){
+      var action = 0;
+      if(cValue) action = 1; //action is one if adding the recommendation
+      var recID = choice.uniqueAppID;
+      var studentEmail = choice.studentEmail;
+      var course = key;
+      var department = choice.choiceData.dept;
+      console.log([action, recID, studentEmail, course, department]);
+      google.script.run.withSuccessHandler(reloadChk).postThisRequest(action, recID, studentEmail, course, department);
+    }
+    
+    $scope.postLock = function(choice, key, cValue){
+      var action = 0;
+      if(cValue) action = 1; //action is one if adding the recommendation
+      var recID = choice.uniqueAppID;
+      var studentEmail = choice.studentEmail;
+      var course = key;
+      var department = choice.choiceData.dept;
+      console.log([action, recID, studentEmail, course, department]);
+      google.script.run.withSuccessHandler(reloadChk).postThisLock(action, recID, studentEmail, course, department);
+    }
+    
+    
+    function reloadChk(x){
+      console.log(x);
+      if(!x.error.status){
+        $scope.data.recData = x.readUpdate;
+        updateSDataWithRecData($scope.data.sData, $scope.data.sDataMap, $scope.data.recData);
+        //createSData();
+        $scope.filteredStudentList = $filter('selectedCourse')($scope.data.sData, $scope.courseFilter);
+        updateStats();
+        $scope.$digest();
+      }
+        
+      console.log($scope);
+    }
+    
+    function showData(data){
+      console.log(data);
+      $scope.data = data;
+      try{
+        createSData();
+         
+        } catch(e) {
+          $scope.data.error = e;
+          console.log(e);
+        }//*/
+        $scope.dataFetching = false; // indicate that data is loaded.
+        $scope.$digest();
+        console.log($scope);
+        $scope.deptFilter = $scope.deptDropDown[0];
+        $scope.courseFilter = $scope.dropDown[0];
+    }
+    
+
+
+    
+    function createSData(){ //function to create an object of all student choice data, with student as key.
+      var data = $scope.data;
+      var si = data.studentInfo;
+      var trns = data.transcripts;
+      var rd = data.recData;
+      var myCourses = data.courses;
+      var allCourses = data.courseDefn;
+      var myDepts = data.myDepts;
+      var deptDefn = data.deptDefn;
+      var IDCol = 0;
+      var emailCol = 1;
+      var homeroomCol = 2;
+      var LastNameCol = 3;
+      var GivenNamesCol = 4;
+      var HRMEmailCol = 5;
+
+      var mySData = [];
+      var sDataKey = {};
+      var dropDown = [];
+      var deptDropDown=[];
+      
+      //List all teacher's department courses in dropdown filter
+      var myDeptCourses = [];
+      var myDeptChoices = [];
+      for (var cc=1; cc < allCourses.length; cc++){
+        if (myDepts.indexOf(allCourses[cc][4]) > -1) { //if the course is in a department that teacher is in...
+          myDeptCourses.push(allCourses[cc][1]); //Add to dropdown list
+          myDeptChoices.push({course: allCourses[cc][1], dept: allCourses[cc][4], credit: allCourses[cc][6], courseData: allCourses[cc]});
+        }
+      }
+ 
+      //Loop through department definitions and build dropdown of departments teacher belongs to
+      for(var dept = 0; dept < deptDefn.length; dept++) {
+         if(myDepts.indexOf(deptDefn[dept][0]) > -1) { //if teacher belongs to this department 
+           deptDropDown.push([deptDefn[dept][0], deptDefn[dept][1]]); //add to department dropdown.
+         }
+      }
+      
+      //Loop through each student and create the object, and mark the array number in sDataKey.
+      var homerooms = [];
+      for (var s = 1; s < si.length; s++) {
+        var approvalChoices = {};
+        if (si[s][homeroomCol].substring(3,5) != "12"){  //non-G12 student - G12 students don't need approvals.
+          var myChoices = {};
+          for (var ch in myDeptChoices){
+            approvalChoices[myDeptChoices[ch].course] = {clientAppVal: false,
+                                                    serverAppVal: false,
+                                                    uniqueAppID: si[s][IDCol]+myDeptChoices[ch].course,
+                                                    studentEmail: si[s][IDCol]+"@ais.edu.hk",
+                                                    requestVal: false,
+                                                    serverRequestVal: false,
+                                                   choiceData: myDeptChoices[ch],
+                                                   editor: "",
+                                                   editTime: "",
+                                                   showTip: false,
+                                                   clientLocked: false,
+                                                   serverLocked: false,
+                                                   requestData: [] };
+          }
+          //approvalChoices.push(myChoices);
+        }
+        mySData.push({ studentID: si[s][IDCol],
+                       homeroom: si[s][homeroomCol],
+                       givenName: si[s][GivenNamesCol],
+                       lastName: si[s][LastNameCol],
+                       transcript: new Array(),
+                       requests: new Array(),
+                       filter: [si[s][homeroomCol]],
+                       approvalChoice: approvalChoices
+                      });
+        sDataKey[si[s][IDCol]] = s - 1;
+        if (homerooms.indexOf(si[s][homeroomCol]) == -1) { //collect a list of homerooms
+          homerooms.push(si[s][homeroomCol]);
+        } 
+      }
+            
+      //List all teacher's current classes in dropdown filter
+      for (var c=0; c < myCourses.length; c++) {
+        if(myCourses[c][4] > 0) dropDown.push(myCourses[c][1]);
+      }
+      
+      //prepare the course dropdown filter choices for this teacher
+      homerooms.sort();
+      dropDown = dropDown.concat(homerooms);
+      myDeptCourses.sort();
+      dropDown = dropDown.concat(myDeptCourses);
+      
+
+      //Loop through Transcript Data and populate student data
+      for (var t = 0 ; t < trns.length; t++) {
+        var trnsID = trns[t][0]; 
+        if (trnsID in sDataKey){
+          var thisSData = mySData[sDataKey[trnsID]];
+          thisSData.transcript.push(trns[t]);
+          if (trns[t][7] == "Current") { //if current, add to list of current
+            thisSData.filter.push(trns[t][9]);
+          }
+        }      
+      }
+      
+      //Write the sData object and sDataMap object to $scope.data
+      data.sDataMap = sDataKey;
+      data.sData = mySData;
+      
+      
+      //Loop through requests data and populate student data
+      updateSDataWithRecData(data.sData, data.sDataMap, rd);
+      
+      //Update the dropdowns
+      $scope.dropDown = dropDown;
+      $scope.deptDropDown = deptDropDown;
+    }//End createSData
+    
+    function updateSDataWithRecData(mySData, sDataKey, rd){
+      for (var s=0; s < mySData.length; s++){
+        mySData[s].requests = ( typeof mySData.requests != 'undefined' && mySData.requests instanceof Array ) ? mySData.requests.length=0 : [];
+      }
+      for (var r = 0; r < rd.length; r++){
+          var rqID = rd[r][1];
+          if (rqID in sDataKey){
+            var thisSData = mySData[sDataKey[rqID]];
+            thisSData.requests.push(rd[r]);
+            if(rd[r][7] || rd[r][8]) { // If the student requests this course, or they have been approved for this course, add this course to their filter property.
+              if(thisSData.filter.indexOf(rd[r][3]) == -1) thisSData.filter.push(rd[r][3]);
+            }
+            if (rd[r][3] in thisSData.approvalChoice){ //add to the student's course approval and request info
+              var thisApprovalData = thisSData.approvalChoice[rd[r][3]];
+              thisApprovalData.clientAppVal = rd[r][7];
+              thisApprovalData.serverAppVal = rd[r][7];
+              thisApprovalData.requestVal = rd[r][8];
+              thisApprovalData.serverRequestVal = rd[r][8];
+              thisApprovalData.requestData.push(rd[r]);
+              thisApprovalData.editor = rd[r][5];
+              thisApprovalData.editTime = rd[r][6];
+              thisApprovalData.clientLocked = rd[r][11];
+              thisApprovalData.serverLocked = rd[r][11];
+            }
+          }
+       }
+    }
+
+    function updateData(r){
+
+    }
+
+    google.script.run.withSuccessHandler(showData).loadGInfo();
+    
+});
+
+app.filter('selectedCourse', function() {
+    return function(x, courseFilter) {          
+         if (x == undefined)
+            x = [];
+            var returned = [];
+            for (var j=0; j < x.length; j++) {
+              for (var i=0; i < x[j].filter.length; i++){
+                //console.log([j, x[j].current[i], courseFilter, courseFilter[1], x[j].current[i] == courseFilter[1]]);
+                if (x[j].filter[i] == courseFilter) {
+                   returned.push(x[j]);
+                }
+              }
+            }
+            return returned;
+    };
+});
+
+app.filter('selectedDept', function() {
+    return function(input, search) {
+    if (!input) return input;
+    if (!search) return input;
+    //var expected = ('' + search).toLowerCase();
+    var result = {};
+    angular.forEach(input, function(value, key) {
+  
+       if(value.choiceData.dept == search) {
+         result[key] = value;
+      }
+    });
+    return result;
+  }});
+</script>
